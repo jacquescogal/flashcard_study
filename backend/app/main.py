@@ -4326,6 +4326,23 @@ _DIST_DIR = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 )
 
+_DIST_ROOT = os.path.realpath(_DIST_DIR)
+
+
+def _resolve_dist_file(full_path: str, dist_root: str = _DIST_ROOT) -> str | None:
+    """Resolve full_path to a file inside dist_root, or None if it escapes it.
+
+    The path component is attacker controlled, so it is resolved through
+    realpath and checked for containment before it is ever served.
+    """
+    if not full_path:
+        return None
+    candidate = os.path.realpath(os.path.join(dist_root, full_path))
+    if candidate != dist_root and not candidate.startswith(dist_root + os.sep):
+        return None
+    return candidate if os.path.isfile(candidate) else None
+
+
 if os.path.isdir(_DIST_DIR):
     app.mount(
         "/assets",
@@ -4335,7 +4352,7 @@ if os.path.isdir(_DIST_DIR):
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa_fallback(full_path: str):
-        candidate = os.path.join(_DIST_DIR, full_path)
-        if full_path and os.path.isfile(candidate):
+        candidate = _resolve_dist_file(full_path)
+        if candidate is not None:
             return FileResponse(candidate)
-        return FileResponse(os.path.join(_DIST_DIR, "index.html"))
+        return FileResponse(os.path.join(_DIST_ROOT, "index.html"))

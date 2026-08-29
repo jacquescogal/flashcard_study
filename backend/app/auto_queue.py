@@ -8,9 +8,20 @@ from app.models import Job, Module, NoteGroup
 
 logger = logging.getLogger(__name__)
 
+# The queue is event driven: enqueue_auto_job notifies the worker the moment work
+# arrives. This timeout only bounds how long the worker can go without
+# reconciling against jobs persisted by another process or by a previous run, so
+# it should stay long -- every idle wake-up is a round trip to a remote database.
+AUTO_QUEUE_IDLE_POLL_SECONDS = 60.0
+# Short backoff after an unexpected failure, so a persistent error cannot spin.
+_ERROR_BACKOFF_SECONDS = 0.25
+
 _queue: deque[str] = deque()
 _queue_set: set[str] = set()
 _condition = Condition()
+# Bumped only when genuinely new work is enqueued. Requeues of jobs we just
+# failed to claim deliberately do not bump it -- waking for those would spin.
+_wake_seq = 0
 _started = False
 _worker_thread: Thread | None = None
 
@@ -51,9 +62,11 @@ def resume_auto_jobs() -> None:
 
 
 def enqueue_auto_job(job_id: str) -> bool:
+    global _wake_seq
     with _condition:
         added = _enqueue_auto_job_unlocked(job_id)
         if added:
+            _wake_seq += 1
             _condition.notify()
         return added
 
@@ -132,8 +145,13 @@ def _pop_queued_job(wait: bool) -> str | None:
 
 
 def _requeue_deferred(job_ids: list[str]) -> None:
-    for job_id in job_ids:
-        enqueue_auto_job(job_id)
+    if not job_ids:
+        return
+    # These jobs were just found unclaimable, so put them back without bumping
+    # the wake sequence: they are not new work and must not cancel the idle wait.
+    with _condition:
+        for job_id in job_ids:
+            _enqueue_auto_job_unlocked(job_id)
 
 
 def _enqueue_persisted_queued_jobs() -> None:
@@ -200,18 +218,28 @@ def _dequeue_next_runnable_job(wait: bool = True) -> str | None:
             deferred_job_ids.append(job_id)
 
 
+def _wait_for_work(wake_seq: int) -> None:
+    with _condition:
+        # New work arrived while we were looking; go straight back round rather
+        # than sleeping on a notify that has already been delivered.
+        if _wake_seq != wake_seq:
+            return
+        _condition.wait(timeout=AUTO_QUEUE_IDLE_POLL_SECONDS)
+
+
 def _worker_loop() -> None:
     while True:
+        with _condition:
+            wake_seq = _wake_seq
         try:
             job_id = _dequeue_next_runnable_job(wait=False)
         except Exception:
             logger.exception("Auto generation worker failed while dequeuing next runnable job")
             with _condition:
-                _condition.wait(timeout=0.25)
+                _condition.wait(timeout=_ERROR_BACKOFF_SECONDS)
             continue
         if not job_id:
-            with _condition:
-                _condition.wait(timeout=0.25)
+            _wait_for_work(wake_seq)
             continue
 
         try:

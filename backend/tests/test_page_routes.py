@@ -1,3 +1,5 @@
+import os
+import tempfile
 import unittest
 
 from sqlalchemy import create_engine
@@ -49,6 +51,46 @@ class PageRoutesTests(unittest.TestCase):
             self.assertEqual(result.subject_id, "subject-1")
         finally:
             db.close()
+
+
+class SpaFallbackPathContainmentTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = os.path.realpath(self._tmp.name)
+        self.dist = os.path.join(self.root, "dist")
+        os.makedirs(os.path.join(self.dist, "assets"))
+        with open(os.path.join(self.dist, "index.html"), "w") as handle:
+            handle.write("<html></html>")
+        with open(os.path.join(self.dist, "assets", "app.js"), "w") as handle:
+            handle.write("console.log(1)")
+        self.secret = os.path.join(self.root, "secret.env")
+        with open(self.secret, "w") as handle:
+            handle.write("OPENAI_API_KEY=sk-real")
+
+    def _resolve(self, full_path: str):
+        from app.main import _resolve_dist_file
+
+        return _resolve_dist_file(full_path, dist_root=self.dist)
+
+    def test_serves_real_file_inside_dist(self):
+        self.assertEqual(
+            self._resolve("assets/app.js"),
+            os.path.join(self.dist, "assets", "app.js"),
+        )
+
+    def test_rejects_traversal_outside_dist(self):
+        for attempt in ("../secret.env", "assets/../../secret.env", "../../etc/passwd"):
+            with self.subTest(attempt=attempt):
+                self.assertIsNone(self._resolve(attempt))
+
+    def test_rejects_absolute_path(self):
+        self.assertIsNone(self._resolve(self.secret.lstrip("/")))
+        self.assertIsNone(self._resolve(self.secret))
+
+    def test_missing_file_falls_through_to_index(self):
+        self.assertIsNone(self._resolve("some/spa/route"))
+        self.assertIsNone(self._resolve(""))
 
 
 if __name__ == "__main__":

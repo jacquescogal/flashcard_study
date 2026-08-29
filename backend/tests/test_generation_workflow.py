@@ -1206,6 +1206,73 @@ class AutoQueueModuleGatingTests(unittest.TestCase):
             log_exception.call_args.args[0],
         )
 
+    def _reset_auto_queue_state(self):
+        import app.auto_queue as auto_queue
+
+        with auto_queue._condition:
+            auto_queue._queue.clear()
+            auto_queue._queue_set.clear()
+            return auto_queue._wake_seq
+
+    def test_idle_worker_sleeps_for_the_long_interval_instead_of_polling(self):
+        import app.auto_queue as auto_queue
+
+        # An idle worker must not hammer the (remote) database: each wake-up is
+        # a query round trip, so the idle wait has to be seconds, not milliseconds.
+        self.assertGreaterEqual(auto_queue.AUTO_QUEUE_IDLE_POLL_SECONDS, 30)
+
+        waits = []
+
+        def fake_wait(timeout=None):
+            waits.append(timeout)
+            raise KeyboardInterrupt()
+
+        with patch.object(
+            auto_queue, "_dequeue_next_runnable_job", return_value=None
+        ), patch.object(auto_queue._condition, "wait", fake_wait):
+            with self.assertRaises(KeyboardInterrupt):
+                auto_queue._worker_loop()
+
+        self.assertEqual(waits, [auto_queue.AUTO_QUEUE_IDLE_POLL_SECONDS])
+
+    def test_requeued_deferred_job_does_not_cancel_the_idle_wait(self):
+        import app.auto_queue as auto_queue
+
+        wake_seq = self._reset_auto_queue_state()
+        self.addCleanup(self._reset_auto_queue_state)
+
+        # A job we just failed to claim goes back on the queue, but it is not new
+        # work: if it cancelled the wait the worker would spin at 100% CPU.
+        auto_queue._requeue_deferred(["deferred-job"])
+
+        with auto_queue._condition:
+            self.assertEqual(list(auto_queue._queue), ["deferred-job"])
+            self.assertEqual(auto_queue._wake_seq, wake_seq)
+
+        waits = []
+        with patch.object(
+            auto_queue._condition, "wait", lambda timeout=None: waits.append(timeout)
+        ):
+            auto_queue._wait_for_work(wake_seq)
+
+        self.assertEqual(waits, [auto_queue.AUTO_QUEUE_IDLE_POLL_SECONDS])
+
+    def test_newly_enqueued_job_cancels_the_idle_wait(self):
+        import app.auto_queue as auto_queue
+
+        wake_seq = self._reset_auto_queue_state()
+        self.addCleanup(self._reset_auto_queue_state)
+
+        self.assertTrue(auto_queue.enqueue_auto_job("fresh-job"))
+
+        waits = []
+        with patch.object(
+            auto_queue._condition, "wait", lambda timeout=None: waits.append(timeout)
+        ):
+            auto_queue._wait_for_work(wake_seq)
+
+        self.assertEqual(waits, [])
+
 
 class DraftFirstAutoGenerationTests(unittest.TestCase):
     def setUp(self):
