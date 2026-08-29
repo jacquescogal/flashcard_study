@@ -104,7 +104,7 @@ describe("ScopeInteractionDock", () => {
     const dividerRule = getCssRule(".scope-dock-review-divider");
 
     expectCssDeclaration(dividerRule, "height", "1px");
-    expect(dividerRule).toContain("background: #cbd5e1");
+    expect(dividerRule).toContain("background: var(--rule)");
   });
 
   test("omits Study when it is not supplied for a scope", () => {

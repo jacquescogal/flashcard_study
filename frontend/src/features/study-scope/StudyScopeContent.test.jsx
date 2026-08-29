@@ -211,7 +211,7 @@ describe("NoteGroupScopeContent inline Study route", () => {
     expect(css).toMatch(/\.clean-source\s*\{[^}]*color:\s*var\(--ink\);/s);
     expect(css).toMatch(/\.reading-section-body p\s*\{[^}]*color:\s*var\(--ink\);/s);
     expect(css).toMatch(/\.source-lookup-study-card-body\s*\{[^}]*color:\s*var\(--ink\);/s);
-    expect(css).toMatch(/\.source-lookup-nav button:disabled\s*\{[^}]*opacity:\s*0\.42;/s);
+    expect(css).toMatch(/\.source-lookup-nav button:disabled\s*\{[^}]*color:\s*var\(--ink-4\);/s);
   });
 
   test("renders friendly Study mode labels and derived Study Card content", () => {

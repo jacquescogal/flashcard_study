@@ -87,6 +87,6 @@ describe("ContextSidebar permission controls", () => {
       />
     );
 
-    expect(html.match(/border-primary/g) ?? []).toHaveLength(1);
+    expect(html.match(/data-selected="true"/g) ?? []).toHaveLength(1);
   });
 });

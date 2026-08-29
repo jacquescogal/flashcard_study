@@ -1,4 +1,5 @@
 import React from "react";
+import { Check } from "lucide-react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
@@ -202,7 +203,7 @@ export function StudyAppReviewOverlay({ model }) {
                                 <span className="option-control">
                                   {reviewCardType === "multi" ? (
                                     <span className={`option-box ${isSelected ? "checked" : ""}`}>
-                                      {isSelected ? "✓" : ""}
+                                      {isSelected ? <Check aria-hidden="true" strokeWidth={3} /> : null}
                                     </span>
                                   ) : (
                                     <span className={`option-radio ${isSelected ? "checked" : ""}`}>

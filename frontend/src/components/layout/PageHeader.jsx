@@ -4,7 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export function PageHeader({
-  eyebrow = "Study System",
+  // Accepted for call-site compatibility. Not rendered: the breadcrumb trail
+  // already says where you are, and the heading carries its own weight.
+  eyebrow,
   title,
   description,
   pageType,
@@ -21,13 +23,12 @@ export function PageHeader({
     <header className={headerClassName}>
       <div className="page-header-frame">
         <div className="page-header-content">
-          <p className="page-header-eyebrow text-xs font-medium uppercase tracking-wide text-muted-foreground">{eyebrow}</p>
-          <nav className="page-header-breadcrumbs text-sm text-muted-foreground">
+          <nav className="page-header-breadcrumbs" aria-label="Breadcrumb">
             {breadcrumbs.map((item, index) => (
               <span key={`${item.label}-${index}`} className="inline-flex items-center gap-1">
                 {index > 0 ? <ChevronRight className="size-3" /> : null}
                 {item.onClick ? (
-                  <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={item.onClick}>
+                  <Button type="button" variant="link" size="sm" className="h-auto p-0 text-[0.8125rem]" onClick={item.onClick}>
                     {item.label}
                   </Button>
                 ) : (
@@ -41,9 +42,9 @@ export function PageHeader({
               {pageType ? <span className="page-header-type-badge">{pageType}</span> : null}
               {current?.badge ? <Badge variant="secondary">{current.badge}</Badge> : null}
             </div>
-            <h1 className="page-header-title text-2xl font-semibold tracking-normal text-foreground">{title}</h1>
+            <h1 className="page-header-title">{title}</h1>
           </div>
-          {description ? <p className="page-header-description text-sm text-muted-foreground">{description}</p> : null}
+          {description ? <p className="page-header-description">{description}</p> : null}
         </div>
         {actions ? <div className="page-header-actions">{actions}</div> : null}
       </div>

@@ -5,6 +5,7 @@ import { ErrorAlert } from "@/components/common/ErrorAlert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 const STAGE_LABELS = {
   queued: "Queued",
@@ -68,18 +69,18 @@ const statusVariant = (status) => {
 
 const StageIcon = ({ status }) => {
   if (status === "running") {
-    return <Loader2 className="mt-0.5 size-4 animate-spin text-primary" />;
+    return <Loader2 className="size-4 shrink-0 animate-spin text-primary" />;
   }
   if (status === "succeeded") {
-    return <CheckCircle2 className="mt-0.5 size-4 text-emerald-600" />;
+    return <CheckCircle2 className="size-4 shrink-0 text-[var(--ok)]" />;
   }
   if (status === "failed") {
-    return <AlertTriangle className="mt-0.5 size-4 text-destructive" />;
+    return <AlertTriangle className="size-4 shrink-0 text-destructive" />;
   }
   if (status === "cancelled") {
-    return <XCircle className="mt-0.5 size-4 text-muted-foreground" />;
+    return <XCircle className="size-4 shrink-0 text-muted-foreground" />;
   }
-  return <Clock3 className="mt-0.5 size-4 text-muted-foreground" />;
+  return <Clock3 className="size-4 shrink-0 text-[var(--ink-4)]" />;
 };
 
 export function NoteGroupGenerationWorkflow({
@@ -132,7 +133,7 @@ export function NoteGroupGenerationWorkflow({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0 space-y-2">
               <span className="overview-kicker">Note Group generation</span>
-              <CardTitle className="text-2xl">{title}</CardTitle>
+              <CardTitle className="text-[1.5rem]">{title}</CardTitle>
               <CardDescription>
                 {activeStage
                   ? `${formatStageLabel(activeStage.stage)} ${formatStatusLabel(activeStage.status).toLowerCase()}`
@@ -145,17 +146,17 @@ export function NoteGroupGenerationWorkflow({
               {connection !== "idle" ? <Badge variant="outline">{formatStatusLabel(connection)}</Badge> : null}
             </div>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-1.5 border-b border-[var(--hair)]">
             <div
-              className="h-full rounded-full bg-primary transition-all"
+              className="h-full bg-primary transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
               style={{ width: `${overallProgress}%` }}
             />
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {error ? <ErrorAlert title="Generation workflow disconnected" message={error} /> : null}
-          <div className="grid gap-3">
-            {stages.map((stage) => {
+          <div className="grid border-t-[1.5px] border-[var(--rule)]">
+            {stages.map((stage, stageIndex) => {
               const current = Number(stage.progress_current);
               const total = Number(stage.progress_total);
               const hasProgress = Number.isFinite(current) && Number.isFinite(total) && total > 0;
@@ -163,19 +164,39 @@ export function NoteGroupGenerationWorkflow({
               const elapsed = stage.status === "running" ? formatElapsed(stage.started_at, now) : "";
               const canRetryStage = canRetry && stage.status === "failed";
               return (
-                <div key={stage.stage} className="rounded-md border bg-background p-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-3">
+                <div
+                  key={stage.stage}
+                  className={cn(
+                    "border-b border-[var(--hair)] bg-card px-3 py-2.5",
+                    stage.status === "running" && "bg-[var(--accent-q)]"
+                  )}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="font-mono text-[0.625rem] tabular-nums tracking-[0.06em] text-muted-foreground">
+                        {String(stageIndex + 1).padStart(2, "0")}
+                      </span>
                       <StageIcon status={stage.status} />
-                      <div className="min-w-0">
-                        <div className="font-medium">{formatStageLabel(stage.stage)}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {formatStatusLabel(stage.status)}
-                          {elapsed ? ` · ${elapsed}` : ""}
-                          {stage.error ? ` · ${stage.error}` : ""}
-                        </div>
-                      </div>
+                      <span
+                        className={cn(
+                          "min-w-0 truncate text-[0.8125rem] font-bold tracking-[-0.008em]",
+                          stage.status === "pending" && "font-normal text-[var(--ink-3)]"
+                        )}
+                      >
+                        {formatStageLabel(stage.stage)}
+                      </span>
                     </div>
+                    <span
+                      className={cn(
+                        "ml-auto font-mono text-[0.625rem] uppercase tracking-[0.14em] tabular-nums text-muted-foreground",
+                        stage.status === "running" && "text-[var(--accent)]",
+                        stage.status === "failed" && "text-destructive"
+                      )}
+                    >
+                      {formatStatusLabel(stage.status)}
+                      {elapsed ? ` · ${elapsed}` : ""}
+                      {stage.error ? ` · ${stage.error}` : ""}
+                    </span>
                     <div className="flex items-center gap-2">
                       {hasProgress ? (
                         <Badge variant="outline">
@@ -197,9 +218,9 @@ export function NoteGroupGenerationWorkflow({
                     </div>
                   </div>
                   {stageProgress !== null ? (
-                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div className="mt-2 h-1 bg-[var(--hair)]">
                       <div
-                        className="h-full rounded-full bg-primary transition-all"
+                        className="h-full bg-primary transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
                         style={{ width: `${stageProgress}%` }}
                       />
                     </div>
@@ -209,11 +230,11 @@ export function NoteGroupGenerationWorkflow({
             })}
           </div>
           {logs.length ? (
-            <div className="rounded-md border bg-muted/30 p-3">
-              <h3 className="mb-2 text-sm font-semibold">Generation log</h3>
+            <div className="border border-[var(--hair-2)] bg-[var(--wash)] p-3">
+              <h3 className="mb-2 font-mono text-[0.625rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Generation log</h3>
               <div className="space-y-2">
                 {logs.slice(-8).map((log) => (
-                  <div key={log.id} className="text-sm">
+                  <div key={log.id} className="text-[0.8125rem]">
                     <span className="text-muted-foreground">{formatStageLabel(log.stage)}: </span>
                     <span>{log.message}</span>
                   </div>

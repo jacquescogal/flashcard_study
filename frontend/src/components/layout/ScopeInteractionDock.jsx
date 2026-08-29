@@ -37,7 +37,6 @@ export function ScopeInteractionDock({
     <aside className="scope-interaction-dock" aria-label={`${scopeLabel} interaction dock`}>
       <div className="scope-interaction-dock-header">
         <div className="scope-interaction-dock-title">
-          <span className="scope-interaction-dock-kicker">Dock</span>
           <h2>{scopeLabel}</h2>
         </div>
         {settings ? (
@@ -62,8 +61,10 @@ export function ScopeInteractionDock({
             <Button
               key={action.id}
               type="button"
-              variant={action.active ? "default" : "outline"}
+              variant="outline"
               className="scope-dock-action"
+              data-active={action.active ? "true" : undefined}
+              aria-current={action.active ? "true" : undefined}
               onClick={action.onClick}
               disabled={action.disabled}
               title={action.disabledReason || action.label}
